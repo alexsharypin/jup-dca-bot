@@ -41,6 +41,9 @@ export class Notifier {
 
     this.bot.telegram.sendMessage(this.chatId, msg, {
       parse_mode: "MarkdownV2",
+      link_preview_options: {
+        is_disabled: true,
+      },
     });
   }
 
@@ -67,6 +70,9 @@ export class Notifier {
 
     this.bot.telegram.sendMessage(this.chatId, msg, {
       parse_mode: "MarkdownV2",
+      link_preview_options: {
+        is_disabled: true,
+      },
     });
   }
 
@@ -93,6 +99,9 @@ export class Notifier {
 
     this.bot.telegram.sendMessage(this.chatId, msg, {
       parse_mode: "MarkdownV2",
+      link_preview_options: {
+        is_disabled: true,
+      },
     });
   }
 }
