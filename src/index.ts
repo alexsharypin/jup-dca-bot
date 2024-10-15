@@ -1,7 +1,7 @@
 require("dotenv").config();
 
-import { DCA } from "./dca";
 import { Telegraf } from "telegraf";
+import { DCA } from "./dca";
 import { Notifier } from "./notifier";
 
 async function main() {
@@ -16,8 +16,6 @@ async function main() {
 
   bot.start((ctx) => {
     notifier.chatId = ctx.chat.id;
-
-    ctx.reply("Welcome");
   });
 
   bot.launch();

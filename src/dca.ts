@@ -1,10 +1,11 @@
 import { Connection, PublicKey } from "@solana/web3.js";
-import { Idl, BorshCoder } from "@coral-xyz/anchor";
+import { Idl, BorshCoder, utils, BorshEventCoder } from "@coral-xyz/anchor";
 import IDL from "./idl.json";
 import { Notifier } from "./notifier";
 
 export class DCA {
   coder: BorshCoder;
+  eventCoder: BorshEventCoder;
   subscriptionId: number;
   programId: string;
   endpoint: string;
@@ -17,6 +18,7 @@ export class DCA {
     this.notifier = notifier;
 
     this.coder = new BorshCoder(IDL as unknown as Idl);
+    this.eventCoder = new BorshEventCoder(IDL as unknown as Idl);
     this.connection = new Connection(endpoint);
 
     console.log("Connected to", this.endpoint);
@@ -56,23 +58,19 @@ export class DCA {
     }
 
     // @ts-ignore
-    const { data, accounts } = tx.transaction.message.instructions[0];
+    const { accounts, data } = tx.transaction.message.instructions.find(
+      (ix) => ix.programId.toString() === this.programId
+    );
 
     const dca = accounts[0].toString();
     const user = accounts[1].toString();
     const input = accounts[3].toString();
     const output = accounts[4].toString();
 
-    const ix = this.coder.instruction.decode(data, "base58");
-
-    // @ts-ignore
-    const inAmount = ix?.data.inAmount;
-
-    // @ts-ignore
-    const inAmountPerCycle = ix?.data.inAmountPerCycle;
-
-    // @ts-ignore
-    const cycleFrequency = ix?.data.cycleFrequency;
+    const {
+      // @ts-ignore
+      data: { inAmount, inAmountPerCycle, cycleFrequency },
+    } = this.coder.instruction.decode(data, "base58");
 
     const result = {
       dca,
@@ -100,19 +98,39 @@ export class DCA {
       return;
     }
 
-    const user = tx?.transaction.message.accountKeys[0].pubkey.toString();
-    const dca = tx?.transaction.message.accountKeys[1].pubkey.toString();
-    const input = tx?.transaction.message.accountKeys[3].pubkey.toString();
-    const output = tx?.transaction.message.accountKeys[4].pubkey.toString();
+    // @ts-ignore
+    const { accounts } = tx.transaction.message.instructions.find(
+      (ix) => ix.programId.toString() === this.programId
+    );
+
+    // @ts-ignore
+    const { data } = tx.meta.innerInstructions[0].instructions.find(
+      (ix) => ix.programId.toString() === this.programId
+    );
+
+    const ixData = utils.bytes.bs58.decode(data);
+    const eventData = utils.bytes.base64.encode(ixData.subarray(8));
+    const {
+      data: { totalInWithdrawn, totalOutWithdrawn },
+    } = this.eventCoder.decode(eventData);
+
+    const dca = accounts[1].toString();
+    const user = accounts[0].toString();
+    const input = accounts[2].toString();
+    const output = accounts[3].toString();
 
     const result = {
       dca,
       user,
       input,
       output,
+      totalInWithdrawn,
+      totalOutWithdrawn,
     };
 
     console.log("closeDca", signature, result);
+
+    this.notifier.closeDca(result);
   }
 
   async endAndClose(signature: string) {
@@ -126,18 +144,38 @@ export class DCA {
       return;
     }
 
-    const dca = tx?.transaction.message.accountKeys[1].pubkey.toString();
-    const user = tx?.transaction.message.accountKeys[4].pubkey.toString();
-    const input = tx?.transaction.message.accountKeys[8].pubkey.toString();
-    const output = tx?.transaction.message.accountKeys[9].pubkey.toString();
+    // @ts-ignore
+    const { accounts } = tx.transaction.message.instructions.find(
+      (ix) => ix.programId.toString() === this.programId
+    );
+
+    // @ts-ignore
+    const { data } = tx.meta.innerInstructions[0].instructions.find(
+      (ix) => ix.programId.toString() === this.programId
+    );
+
+    const ixData = utils.bytes.bs58.decode(data);
+    const eventData = utils.bytes.base64.encode(ixData.subarray(8));
+    const {
+      data: { totalInWithdrawn, totalOutWithdrawn },
+    } = this.eventCoder.decode(eventData);
+
+    const dca = accounts[1].toString();
+    const user = accounts[6].toString();
+    const input = accounts[2].toString();
+    const output = accounts[3].toString();
 
     const result = {
       dca,
       user,
       input,
       output,
+      totalInWithdrawn,
+      totalOutWithdrawn,
     };
 
     console.log("endAndClose", signature, result);
+
+    this.notifier.endAndClose(result);
   }
 }
